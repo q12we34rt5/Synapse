@@ -91,7 +91,7 @@ function App() {
             <BookOpen className="w-8 h-8 text-indigo-400" />
           </div>
           <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-indigo-200 hidden md:block">
-            LexiFlow
+            Synapse
           </h1>
         </div>
 
