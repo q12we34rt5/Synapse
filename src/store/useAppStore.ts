@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import type { AppState, Word, ReviewItem, Settings, Question } from '../types';
+import { DEFAULT_PROMPTS } from '../constants/prompts';
 
 interface AppStore extends AppState {
     addWord: (word: Word) => void;
@@ -36,6 +37,8 @@ export const useAppStore = create<AppStore>()(
                 modelName: 'meta-llama/Meta-Llama-3-8B-Instruct',
                 concurrencyLimit: 1,
                 theme: 'dark',
+                useCustomPrompts: false,
+                prompts: DEFAULT_PROMPTS,
             },
             processingQueue: [], // Initialize empty queue
             activeQueue: [], // Initialize empty active queue

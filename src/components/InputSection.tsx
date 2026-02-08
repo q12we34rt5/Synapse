@@ -25,9 +25,9 @@ export const InputSection: React.FC = () => {
         try {
             let llm: LLMService;
             if (settings.provider === 'openai') {
-                llm = new OpenAIProvider(settings.apiKey, settings.baseUrl, settings.modelName);
+                llm = new OpenAIProvider(settings.apiKey, settings.baseUrl, settings.modelName, settings.prompts);
             } else {
-                llm = new GeminiProvider(settings.apiKey);
+                llm = new GeminiProvider(settings.apiKey, settings.prompts);
             }
 
             const data = await llm.generateWordData(input.trim());

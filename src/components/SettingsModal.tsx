@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAppStore } from '../store/useAppStore';
 import { X, Settings as SettingsIcon, Download, Upload } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { DEFAULT_PROMPTS } from '../constants/prompts';
 
 export const SettingsModal: React.FC = () => {
     const { settings, setSettings, words, reviews, importData } = useAppStore();
@@ -14,6 +15,8 @@ export const SettingsModal: React.FC = () => {
     const [baseUrl, setBaseUrl] = useState(settings.baseUrl || 'http://localhost:8000/v1');
     const [modelName, setModelName] = useState(settings.modelName || 'meta-llama/Meta-Llama-3-8B-Instruct');
     const [concurrencyLimit, setConcurrencyLimit] = useState(settings.concurrencyLimit || 1);
+    const [useCustomPrompts, setUseCustomPrompts] = useState(settings.useCustomPrompts || false);
+    const [prompts, setPrompts] = useState(settings.prompts || DEFAULT_PROMPTS);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -25,6 +28,8 @@ export const SettingsModal: React.FC = () => {
             setBaseUrl(settings.baseUrl || 'http://localhost:8000/v1');
             setModelName(settings.modelName || 'meta-llama/Meta-Llama-3-8B-Instruct');
             setConcurrencyLimit(settings.concurrencyLimit || 1);
+            setUseCustomPrompts(settings.useCustomPrompts || false);
+            setPrompts(settings.prompts || DEFAULT_PROMPTS);
         }
     }, [isOpen, settings]);
 
@@ -35,6 +40,8 @@ export const SettingsModal: React.FC = () => {
             baseUrl,
             modelName,
             concurrencyLimit,
+            useCustomPrompts,
+            prompts,
         });
         setIsOpen(false);
     };
@@ -194,6 +201,113 @@ export const SettingsModal: React.FC = () => {
                                             </div>
                                             <p className="text-xs text-slate-500 mt-1">Higher values process words faster but may hit API rate limits.</p>
                                         </div>
+                                    </div>
+
+                                    <hr className="border-slate-700" />
+
+                                    {/* Prompt Configuration */}
+                                    <div className="space-y-4">
+                                        <div className="flex flex-col gap-3">
+                                            <h3 className="text-sm font-bold text-indigo-400 uppercase tracking-wider">Prompt Configuration</h3>
+                                            <div className="flex items-center">
+                                                <label className="relative inline-flex items-center cursor-pointer">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="sr-only peer"
+                                                        checked={useCustomPrompts}
+                                                        onChange={(e) => {
+                                                            setUseCustomPrompts(e.target.checked);
+                                                            // If enabling and prompts are empty, fill with defaults
+                                                            if (e.target.checked) {
+                                                                setPrompts(prev => ({
+                                                                    generateData: prev.generateData || DEFAULT_PROMPTS.generateData,
+                                                                    generateQuestion: prev.generateQuestion || DEFAULT_PROMPTS.generateQuestion,
+                                                                    evaluateAnswer: prev.evaluateAnswer || DEFAULT_PROMPTS.evaluateAnswer
+                                                                }));
+                                                            }
+                                                        }}
+                                                    />
+                                                    <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-800 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600 flex-shrink-0"></div>
+                                                    <span className="ml-2 text-sm font-medium text-slate-300 whitespace-nowrap">Enable Custom Prompts</span>
+                                                </label>
+                                            </div>
+                                        </div>
+
+                                        {useCustomPrompts && (
+                                            <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                                                <div className="bg-amber-900/20 border border-amber-500/30 rounded-lg p-3 text-amber-200 text-sm">
+                                                    <p>⚠️ Advanced setting: Incorrect prompts may cause the AI to fail or produce invalid JSON.</p>
+                                                </div>
+
+                                                <div className="space-y-3">
+                                                    <div>
+                                                        <div className="flex justify-between items-center mb-1">
+                                                            <label className="block text-sm font-medium text-slate-300">
+                                                                Word Generation Prompt
+                                                            </label>
+                                                            <button
+                                                                onClick={() => setPrompts(prev => ({ ...prev, generateData: DEFAULT_PROMPTS.generateData }))}
+                                                                className="text-xs text-indigo-400 hover:text-indigo-300"
+                                                            >
+                                                                Reset to Default
+                                                            </button>
+                                                        </div>
+                                                        <div className="text-xs text-slate-500 mb-2">
+                                                            Available variables: <code className="bg-slate-700 px-1 rounded">{'${word}'}</code>
+                                                        </div>
+                                                        <textarea
+                                                            value={prompts.generateData}
+                                                            onChange={(e) => setPrompts({ ...prompts, generateData: e.target.value })}
+                                                            className="w-full h-32 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-xs"
+                                                        />
+                                                    </div>
+
+                                                    <div>
+                                                        <div className="flex justify-between items-center mb-1">
+                                                            <label className="block text-sm font-medium text-slate-300">
+                                                                Question Generation Prompt
+                                                            </label>
+                                                            <button
+                                                                onClick={() => setPrompts(prev => ({ ...prev, generateQuestion: DEFAULT_PROMPTS.generateQuestion }))}
+                                                                className="text-xs text-indigo-400 hover:text-indigo-300"
+                                                            >
+                                                                Reset to Default
+                                                            </button>
+                                                        </div>
+                                                        <div className="text-xs text-slate-500 mb-2">
+                                                            Available variables: <code className="bg-slate-700 px-1 rounded">{'${word}'}</code>
+                                                        </div>
+                                                        <textarea
+                                                            value={prompts.generateQuestion}
+                                                            onChange={(e) => setPrompts({ ...prompts, generateQuestion: e.target.value })}
+                                                            className="w-full h-32 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-xs"
+                                                        />
+                                                    </div>
+
+                                                    <div>
+                                                        <div className="flex justify-between items-center mb-1">
+                                                            <label className="block text-sm font-medium text-slate-300">
+                                                                Answer Evaluation Prompt
+                                                            </label>
+                                                            <button
+                                                                onClick={() => setPrompts(prev => ({ ...prev, evaluateAnswer: DEFAULT_PROMPTS.evaluateAnswer }))}
+                                                                className="text-xs text-indigo-400 hover:text-indigo-300"
+                                                            >
+                                                                Reset to Default
+                                                            </button>
+                                                        </div>
+                                                        <div className="text-xs text-slate-500 mb-2">
+                                                            Available variables: <code className="bg-slate-700 px-1 rounded">{'${targetWord}'}</code>, <code className="bg-slate-700 px-1 rounded">{'${sentence}'}</code>, <code className="bg-slate-700 px-1 rounded">{'${userInput}'}</code>
+                                                        </div>
+                                                        <textarea
+                                                            value={prompts.evaluateAnswer}
+                                                            onChange={(e) => setPrompts({ ...prompts, evaluateAnswer: e.target.value })}
+                                                            className="w-full h-32 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-xs"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
 
                                     <hr className="border-slate-700" />

@@ -1,14 +1,21 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, GenerativeModel } from "@google/generative-ai";
 import type { LLMService, EvaluationResult } from "./LLMService";
+import { DEFAULT_PROMPTS } from "../../constants/prompts";
 
 
 export class GeminiProvider implements LLMService {
     private genAI: GoogleGenerativeAI;
-    private model: any;
+    private model: GenerativeModel;
+    private prompts?: {
+        generateData: string;
+        generateQuestion: string;
+        evaluateAnswer: string;
+    };
 
-    constructor(apiKey: string) {
+    constructor(apiKey: string, prompts?: { generateData: string; generateQuestion: string; evaluateAnswer: string }) {
         this.genAI = new GoogleGenerativeAI(apiKey);
         this.model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        this.prompts = prompts;
     }
 
     async generateWordData(word: string): Promise<{
@@ -20,18 +27,9 @@ export class GeminiProvider implements LLMService {
             cloze: string;
         }[];
     }> {
-        const prompt = `
-      Generate a sentence using the English word "${word}". 
-      The sentence should be suitable for an intermediate English learner. 
-      Return a JSON object ONLY, without markdown formatting, with the following structure:
-      {
-        "original": "${word}",
-        "sentence": "The full sentence containing the word.",
-        "translation": "Traditional Chinese translation of the sentence.",
-        "wordTranslation": "Traditional Chinese translation of the word '${word}'",
-        "cloze": "The sentence with the word '${word}' (and its variations like plurals/tenses if applicable) replaced by '__________'."
-      }
-    `;
+        const prompt = this.prompts?.generateData
+            ? this.prompts.generateData.replace(/\${word}/g, word)
+            : DEFAULT_PROMPTS.generateData.replace(/\${word}/g, word);
 
         try {
             const result = await this.model.generateContent(prompt);
@@ -61,16 +59,9 @@ export class GeminiProvider implements LLMService {
         translation: string;
         cloze: string;
     }> {
-        const prompt = `
-      Generate a NEW sentence using the English word "${word}". 
-      The sentence should be different from common examples and suitable for an intermediate learner. 
-      Return a JSON object ONLY, without markdown formatting:
-      {
-        "sentence": "The full sentence containing the word.",
-        "translation": "Traditional Chinese translation of the sentence.",
-        "cloze": "The sentence with the word '${word}' replaced by '__________'."
-      }
-    `;
+        const prompt = this.prompts?.generateQuestion
+            ? this.prompts.generateQuestion.replace(/\${word}/g, word)
+            : DEFAULT_PROMPTS.generateQuestion.replace(/\${word}/g, word);
 
         try {
             const result = await this.model.generateContent(prompt);
@@ -91,19 +82,15 @@ export class GeminiProvider implements LLMService {
     }
 
     async evaluateAnswer(targetWord: string, userInput: string, sentence: string): Promise<EvaluationResult> {
-        const prompt = `
-      The target word was "${targetWord}". 
-      The context sentence was: "${sentence}".
-      The user input to fill the blank was: "${userInput}".
-      
-      Evaluate the user's input strictly but helpfully.
-      Return a JSON object ONLY, without markdown formatting:
-      {
-        "isCorrect": boolean, // true if exact match or acceptable variation (e.g. case insensitive)
-        "type": "CORRECT" | "TYPO" | "WRONG_MEANING" | "UNRELATED" | "CLOSE_SYNONYM",
-        "feedback": "String in Traditional Chinese. If correct, praise briefly. If typo, point it out. If wrong meaning, explain why WITHOUT revealing the correct answer. If synonym, acknowledge it but say the target word is better here (do not explicitly state the target word)."
-      }
-    `;
+        const prompt = this.prompts?.evaluateAnswer
+            ? this.prompts.evaluateAnswer
+                .replace(/\${targetWord}/g, targetWord)
+                .replace(/\${userInput}/g, userInput)
+                .replace(/\${sentence}/g, sentence)
+            : DEFAULT_PROMPTS.evaluateAnswer
+                .replace(/\${targetWord}/g, targetWord)
+                .replace(/\${userInput}/g, userInput)
+                .replace(/\${sentence}/g, sentence);
 
         try {
             const result = await this.model.generateContent(prompt);

@@ -32,7 +32,13 @@ export interface Settings {
     baseUrl?: string; // For local/custom providers
     modelName?: string; // For local/custom providers
     concurrencyLimit?: number; // Max parallel requests
+    useCustomPrompts?: boolean;
     theme: 'light' | 'dark' | 'system';
+    prompts?: {
+        generateData: string;
+        generateQuestion: string;
+        evaluateAnswer: string;
+    };
 }
 
 export interface AppState {

@@ -61,9 +61,9 @@ export const QuizCard: React.FC<QuizCardProps> = ({ word, question, review, onCo
         try {
             let llm: LLMService;
             if (settings.provider === 'openai') {
-                llm = new OpenAIProvider(settings.apiKey, settings.baseUrl, settings.modelName);
+                llm = new OpenAIProvider(settings.apiKey, settings.baseUrl, settings.modelName, settings.prompts);
             } else {
-                llm = new GeminiProvider(settings.apiKey);
+                llm = new GeminiProvider(settings.apiKey, settings.prompts);
             }
 
             const result = await llm.evaluateAnswer(word.original, input, question.sentence);
