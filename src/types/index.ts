@@ -32,4 +32,5 @@ export interface AppState {
     words: Record<string, Word>;
     reviews: Record<string, ReviewItem>;
     settings: Settings;
+    processingQueue: string[];
 }

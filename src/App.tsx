@@ -1,12 +1,58 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useAppStore } from './store/useAppStore';
 import { SettingsModal } from './components/SettingsModal';
 import { Dashboard } from './components/Dashboard';
 import { QuizSession } from './components/QuizSession';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, LayoutDashboard, BrainCircuit } from 'lucide-react';
+import { GeminiProvider } from './services/llm/GeminiProvider';
+import { OpenAIProvider } from './services/llm/OpenAIProvider';
+import { v4 as uuidv4 } from 'uuid';
+import type { LLMService } from './services/llm/LLMService';
 
 function App() {
   const [view, setView] = useState<'dashboard' | 'quiz'>('dashboard');
+  const { processingQueue, settings, addWord, removeFromQueue } = useAppStore();
+  const isProcessingRef = useRef(false);
+
+  // Queue Processing Effect
+  useEffect(() => {
+    const processQueue = async () => {
+      if (processingQueue.length === 0 || isProcessingRef.current) return;
+
+      isProcessingRef.current = true;
+      const currentWord = processingQueue[0];
+
+      try {
+        let llm: LLMService;
+        if (settings.provider === 'openai') {
+          llm = new OpenAIProvider(settings.apiKey, settings.baseUrl, settings.modelName);
+        } else {
+          llm = new GeminiProvider(settings.apiKey);
+        }
+
+        const data = await llm.generateWordData(currentWord);
+        addWord({
+          id: uuidv4(),
+          ...data,
+          addedAt: Date.now(),
+        });
+
+        // Success: Remove from queue
+        removeFromQueue();
+      } catch (error) {
+        console.error(`Failed to process word: ${currentWord}`, error);
+        // Error: Remove from queue to prevent blocking (or maybe move to a 'failed' list in future)
+        removeFromQueue();
+      } finally {
+        isProcessingRef.current = false;
+        // Trigger next iteration immediately if there are more items
+        // Since processingQueue dependency will update after removeFromQueue, this effect will run again.
+      }
+    };
+
+    processQueue();
+  }, [processingQueue, settings, addWord, removeFromQueue]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex flex-col items-center p-4 md:p-8 relative overflow-hidden">

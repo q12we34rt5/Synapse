@@ -8,6 +8,8 @@ interface AppStore extends AppState {
     updateReview: (review: ReviewItem) => void;
     setSettings: (settings: Partial<Settings>) => void;
     importData: (data: Partial<AppState>) => void;
+    addToQueue: (words: string[]) => void;
+    removeFromQueue: () => void; // Removes the first item
     getDueReviews: () => ReviewItem[];
 }
 
@@ -23,6 +25,15 @@ export const useAppStore = create<AppStore>()(
                 modelName: 'meta-llama/Meta-Llama-3-8B-Instruct',
                 theme: 'dark',
             },
+            processingQueue: [], // Initialize empty queue
+            addToQueue: (newWords) =>
+                set((state) => ({
+                    processingQueue: [...state.processingQueue, ...newWords]
+                })),
+            removeFromQueue: () =>
+                set((state) => ({
+                    processingQueue: state.processingQueue.slice(1)
+                })),
             addWord: (word) =>
                 set((state) => ({
                     words: { ...state.words, [word.id]: word },
@@ -59,6 +70,7 @@ export const useAppStore = create<AppStore>()(
                     words: { ...state.words, ...data.words },
                     reviews: { ...state.reviews, ...data.reviews },
                     settings: { ...state.settings, ...data.settings },
+                    processingQueue: data.processingQueue || [],
                 })),
             getDueReviews: () => {
                 const now = Date.now();

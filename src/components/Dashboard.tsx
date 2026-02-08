@@ -1,19 +1,13 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { GeminiProvider } from '../services/llm/GeminiProvider';
-import { OpenAIProvider } from '../services/llm/OpenAIProvider';
-import { Loader2, Trash2, Plus, AlertCircle } from 'lucide-react';
-import { v4 as uuidv4 } from 'uuid';
-import type { LLMService } from '../services/llm/LLMService';
+import { Loader2, Trash2, Plus, AlertCircle, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const Dashboard: React.FC = () => {
-    const { words, reviews, addWord, deleteWord, settings } = useAppStore();
+    const { words, reviews, deleteWord, settings, addToQueue, processingQueue } = useAppStore();
     const [batchInput, setBatchInput] = useState('');
-    const [isProcessing, setIsProcessing] = useState(false);
-    const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
 
-    const handleBatchSubmit = async () => {
+    const handleBatchSubmit = () => {
         if (!batchInput.trim()) return;
 
         // Validation
@@ -25,39 +19,8 @@ export const Dashboard: React.FC = () => {
         const lines = batchInput.split('\n').filter(line => line.trim());
         if (lines.length === 0) return;
 
-        setIsProcessing(true);
-        setProgress({ current: 0, total: lines.length });
-
-        try {
-            let llm: LLMService;
-            if (settings.provider === 'openai') {
-                llm = new OpenAIProvider(settings.apiKey, settings.baseUrl, settings.modelName);
-            } else {
-                llm = new GeminiProvider(settings.apiKey);
-            }
-
-            for (let i = 0; i < lines.length; i++) {
-                const word = lines[i].trim();
-                try {
-                    const data = await llm.generateWordData(word);
-                    addWord({
-                        id: uuidv4(),
-                        ...data,
-                        addedAt: Date.now(),
-                    });
-                } catch (err) {
-                    console.error(`Failed to process word: ${word}`, err);
-                }
-                setProgress({ current: i + 1, total: lines.length });
-            }
-            setBatchInput('');
-        } catch (error) {
-            console.error(error);
-            alert('Batch processing failed. check console and API settings.');
-        } finally {
-            setIsProcessing(false);
-            setProgress(null);
-        }
+        addToQueue(lines);
+        setBatchInput('');
     };
 
     const sortedWords = Object.values(words).sort((a, b) => b.addedAt - a.addedAt);
@@ -76,30 +39,44 @@ export const Dashboard: React.FC = () => {
                         onChange={(e) => setBatchInput(e.target.value)}
                         placeholder="Enter words here, one per line..."
                         className="w-full h-32 bg-slate-900/50 border border-slate-600 rounded-xl p-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none font-mono"
-                        disabled={isProcessing}
                     />
                     <div className="flex justify-between items-center">
                         <span className="text-sm text-slate-500">
-                            {isProcessing && progress ?
-                                `Processing ${progress.current}/${progress.total}...` :
-                                'Tip: You can paste a list of words.'}
+                            Tip: You can paste a list of words.
                         </span>
                         <button
                             onClick={handleBatchSubmit}
-                            disabled={isProcessing || !batchInput.trim()}
+                            disabled={!batchInput.trim()}
                             className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50 flex items-center gap-2"
                         >
-                            {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add Words'}
+                            <Plus className="w-4 h-4" /> Add to Queue
                         </button>
                     </div>
-                    {isProcessing && progress && (
-                        <div className="w-full bg-slate-700 rounded-full h-2 overflow-hidden">
-                            <div
-                                className="bg-indigo-500 h-full transition-all duration-300"
-                                style={{ width: `${(progress.current / progress.total) * 100}%` }}
-                            />
-                        </div>
-                    )}
+
+                    {/* Processing Queue Display */}
+                    <AnimatePresence>
+                        {processingQueue.length > 0 && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="bg-slate-900/50 rounded-xl p-4 border border-indigo-500/30"
+                            >
+                                <div className="flex items-center gap-2 text-indigo-400 mb-2">
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    <span className="text-sm font-medium">Processing Queue ({processingQueue.length})</span>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    {processingQueue.map((word, index) => (
+                                        <div key={`${word}-${index}`} className="px-3 py-1 bg-indigo-500/20 text-indigo-200 rounded-full text-xs flex items-center gap-2 border border-indigo-500/20">
+                                            {index === 0 && <Clock className="w-3 h-3 animate-pulse" />}
+                                            {word}
+                                        </div>
+                                    ))}
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
                 </div>
             </div>
 
