@@ -98,7 +98,7 @@ export const QuizCard: React.FC<QuizCardProps> = ({ word, question, review, onCo
                         <div className="mb-8">
                             <h2 className="text-xl text-slate-400 mb-2">Fill in the blank</h2>
                             <p className="text-2xl md:text-3xl font-medium leading-relaxed text-indigo-100">
-                                {question.cloze.split('__________').map((part, i, arr) => (
+                                {question.cloze.split(/_+/).map((part, i, arr) => (
                                     <React.Fragment key={i}>
                                         {part}
                                         {i < arr.length - 1 && (
@@ -119,8 +119,8 @@ export const QuizCard: React.FC<QuizCardProps> = ({ word, question, review, onCo
                                 type="text"
                                 value={input}
                                 onChange={(e) => setInput(e.target.value)}
-                                placeholder="Type your answer..."
-                                className="w-full bg-slate-900/50 border border-slate-600 rounded-xl px-4 py-3 text-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                                placeholder={getHintText() || "Type your answer..."}
+                                className="w-full bg-slate-900/50 border border-slate-600 rounded-xl px-4 py-3 text-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all placeholder:text-slate-500"
                                 autoFocus
                             />
 
