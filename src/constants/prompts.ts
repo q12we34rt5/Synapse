@@ -29,6 +29,6 @@ Return a JSON object ONLY, without markdown formatting:
 {
   "isCorrect": boolean, // true if exact match or acceptable business English variation
   "type": "CORRECT" | "TYPO" | "WRONG_MEANING" | "UNRELATED" | "CLOSE_SYNONYM",
-  "feedback": "String in Traditional Chinese. If correct, praise briefly. If typo, point it out. If wrong meaning, explain why (focusing on business usage) WITHOUT revealing the correct answer. If synonym, acknowledge it but say the target word is better in this specific business context (do not explicitly state the target word)."
+  "feedback": "String in Traditional Chinese. If correct, praise briefly. If wrong, explain WHY (grammar, meaning, nuance) the user's input is incorrect, but **NEVER** reveal the target word or correct answer. Focus on guiding the user to the answer without giving it away."
 }`
 };
