@@ -22,6 +22,8 @@ interface AppStore extends AppState {
     updateQuestion: (wordId: string, questionId: string, updates: Partial<Question>) => void;
     deleteQuestion: (wordId: string, questionId: string) => void;
 
+    resetWordStats: (wordId: string) => void;
+
     getDueReviews: () => ReviewItem[];
 }
 
@@ -175,6 +177,25 @@ export const useAppStore = create<AppStore>()(
                             [wordId]: {
                                 ...word,
                                 questions: word.questions.filter(q => q.id !== questionId)
+                            }
+                        }
+                    };
+                }),
+
+            resetWordStats: (wordId) =>
+                set((state) => {
+                    const review = state.reviews[wordId];
+                    if (!review) return {};
+                    return {
+                        reviews: {
+                            ...state.reviews,
+                            [wordId]: {
+                                ...review,
+                                reviewCount: 0,
+                                wrongCount: 0,
+                                interval: 0,
+                                nextReview: Date.now(),
+                                history: []
                             }
                         }
                     };

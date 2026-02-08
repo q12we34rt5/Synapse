@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { Loader2, Trash2, Plus, AlertCircle, Clock, Edit, Sparkles, X } from 'lucide-react';
+import { Loader2, Trash2, Plus, AlertCircle, Clock, Edit, Sparkles, X, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 import { GeminiProvider } from '../services/llm/GeminiProvider';
@@ -9,7 +9,7 @@ import { OpenAIProvider } from '../services/llm/OpenAIProvider';
 import type { LLMService } from '../services/llm/LLMService';
 
 export const Dashboard: React.FC = () => {
-    const { words, reviews, deleteWord, settings, addToQueue, processingQueue, activeQueue, clearAllWords, toggleWordStatus, deleteQuestion, addQuestion, updateQuestion } = useAppStore();
+    const { words, reviews, deleteWord, settings, addToQueue, processingQueue, activeQueue, clearAllWords, toggleWordStatus, deleteQuestion, addQuestion, updateQuestion, resetWordStats } = useAppStore();
     const [batchInput, setBatchInput] = useState('');
     const [expandedWordId, setExpandedWordId] = useState<string | null>(null);
 
@@ -332,6 +332,13 @@ export const Dashboard: React.FC = () => {
                                                     <div className="text-indigo-400 font-mono">{review?.reviewCount || 0}</div>
                                                 </div>
 
+                                                <div className="text-center px-2">
+                                                    <div className="text-xs text-slate-500 uppercase font-bold">Mistakes</div>
+                                                    <div className={`font-mono ${review?.wrongCount ? 'text-red-400' : 'text-slate-500'}`}>
+                                                        {review?.wrongCount || 0}
+                                                    </div>
+                                                </div>
+
                                                 <label className="flex items-center cursor-pointer">
                                                     <div className="relative">
                                                         <input
@@ -344,6 +351,17 @@ export const Dashboard: React.FC = () => {
                                                         <div className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full shadow transition-transform ${word.enabled ? 'translate-x-4' : 'translate-x-0'} `}></div>
                                                     </div>
                                                 </label>
+
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        resetWordStats(word.id);
+                                                    }}
+                                                    className="p-2 text-slate-500 hover:text-amber-400 hover:bg-amber-400/10 rounded-lg transition-colors"
+                                                    title="Reset Stats"
+                                                >
+                                                    <RotateCcw className="w-4 h-4" />
+                                                </button>
 
                                                 <button
                                                     onClick={() => deleteWord(word.id)}
