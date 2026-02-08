@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { Loader2, Trash2, Plus, AlertCircle, Clock, Edit, Sparkles, X, RotateCcw } from 'lucide-react';
+import { Loader2, Trash2, Plus, AlertCircle, Clock, Edit, Sparkles, X, RotateCcw, ArrowDownAZ, Calendar, BarChart3, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 import { GeminiProvider } from '../services/llm/GeminiProvider';
@@ -108,7 +108,24 @@ export const Dashboard: React.FC = () => {
         setIsQuestionModalOpen(false);
     };
 
-    const sortedWords = Object.values(words).sort((a, b) => b.addedAt - a.addedAt);
+    const [sortOption, setSortOption] = useState<'date' | 'alpha' | 'reviews' | 'mistakes'>('date');
+
+    const sortedWords = Object.values(words).sort((a, b) => {
+        const reviewA = reviews[a.id];
+        const reviewB = reviews[b.id];
+
+        switch (sortOption) {
+            case 'alpha':
+                return a.original.localeCompare(b.original);
+            case 'reviews':
+                return (reviewB?.reviewCount || 0) - (reviewA?.reviewCount || 0);
+            case 'mistakes':
+                return (reviewB?.wrongCount || 0) - (reviewA?.wrongCount || 0);
+            case 'date':
+            default:
+                return b.addedAt - a.addedAt;
+        }
+    });
 
     return (
         <div className="w-full max-w-4xl mx-auto p-4 space-y-8 relative">
@@ -287,6 +304,38 @@ export const Dashboard: React.FC = () => {
                             Clear All Words
                         </button>
                     )}
+                </div>
+
+                {/* Sort Controls */}
+                <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+                    <button
+                        onClick={() => setSortOption('date')}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${sortOption === 'date' ? 'bg-indigo-600 text-white' : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-white'}`}
+                    >
+                        <Calendar className="w-4 h-4" />
+                        Date
+                    </button>
+                    <button
+                        onClick={() => setSortOption('alpha')}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${sortOption === 'alpha' ? 'bg-indigo-600 text-white' : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-white'}`}
+                    >
+                        <ArrowDownAZ className="w-4 h-4" />
+                        A-Z
+                    </button>
+                    <button
+                        onClick={() => setSortOption('reviews')}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${sortOption === 'reviews' ? 'bg-indigo-600 text-white' : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-white'}`}
+                    >
+                        <BarChart3 className="w-4 h-4" />
+                        Reviews
+                    </button>
+                    <button
+                        onClick={() => setSortOption('mistakes')}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${sortOption === 'mistakes' ? 'bg-indigo-600 text-white' : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700 hover:text-white'}`}
+                    >
+                        <AlertTriangle className="w-4 h-4" />
+                        Mistakes
+                    </button>
                 </div>
 
                 {sortedWords.length === 0 ? (
