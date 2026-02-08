@@ -190,7 +190,7 @@ export const SettingsModal: React.FC = () => {
                                                 <input
                                                     type="range"
                                                     min="1"
-                                                    max="5"
+                                                    max="16"
                                                     value={concurrencyLimit}
                                                     onChange={(e) => setConcurrencyLimit(parseInt(e.target.value))}
                                                     className="flex-1 accent-indigo-500"
