@@ -32,9 +32,12 @@ export const InputSection: React.FC = () => {
 
             const data = await llm.generateWordData(input.trim());
 
+            // Add enabled: true and map question IDs
             addWord({
                 id: uuidv4(),
                 ...data,
+                questions: data.questions.map(q => ({ ...q, id: uuidv4() })),
+                enabled: true,
                 addedAt: Date.now(),
             });
             setInput('');

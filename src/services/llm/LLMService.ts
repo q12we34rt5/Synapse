@@ -1,4 +1,4 @@
-import type { Word } from "../../types";
+
 
 export interface EvaluationResult {
     isCorrect: boolean;
@@ -7,6 +7,19 @@ export interface EvaluationResult {
 }
 
 export interface LLMService {
-    generateWordData(word: string): Promise<Omit<Word, 'id' | 'addedAt'>>;
+    generateWordData(word: string): Promise<{
+        original: string;
+        wordTranslation: string;
+        questions: {
+            sentence: string;
+            translation: string;
+            cloze: string;
+        }[];
+    }>;
     evaluateAnswer(targetWord: string, userInput: string, sentence: string): Promise<EvaluationResult>;
+    generateQuestion(word: string): Promise<{
+        sentence: string;
+        translation: string;
+        cloze: string;
+    }>;
 }

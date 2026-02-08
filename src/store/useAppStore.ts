@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AppState, Word, ReviewItem, Settings } from '../types';
+import { v4 as uuidv4 } from 'uuid';
+import type { AppState, Word, ReviewItem, Settings, Question } from '../types';
 
 interface AppStore extends AppState {
     addWord: (word: Word) => void;
@@ -13,6 +14,13 @@ interface AppStore extends AppState {
     moveToActive: () => string | null; // Moves first item from processing to active, returns item
     completeProcessing: (word: string) => void; // Removes item from active
     clearAllWords: () => void;
+
+    // New Actions
+    toggleWordStatus: (wordId: string) => void;
+    addQuestion: (wordId: string, question: Question) => void;
+    updateQuestion: (wordId: string, questionId: string, updates: Partial<Question>) => void;
+    deleteQuestion: (wordId: string, questionId: string) => void;
+
     getDueReviews: () => ReviewItem[];
 }
 
@@ -31,6 +39,7 @@ export const useAppStore = create<AppStore>()(
             },
             processingQueue: [], // Initialize empty queue
             activeQueue: [], // Initialize empty active queue
+
             addToQueue: (newWords) =>
                 set((state) => ({
                     processingQueue: [...state.processingQueue, ...newWords]
@@ -55,6 +64,7 @@ export const useAppStore = create<AppStore>()(
                 set((state) => ({
                     activeQueue: state.activeQueue.filter(w => w !== word)
                 })),
+
             addWord: (word) =>
                 set((state) => ({
                     words: { ...state.words, [word.id]: word },
@@ -70,6 +80,7 @@ export const useAppStore = create<AppStore>()(
                         },
                     },
                 })),
+
             deleteWord: (id) =>
                 set((state) => {
                     const newWords = { ...state.words };
@@ -78,6 +89,7 @@ export const useAppStore = create<AppStore>()(
                     delete newReviews[id];
                     return { words: newWords, reviews: newReviews };
                 }),
+
             clearAllWords: () =>
                 set(() => ({
                     words: {},
@@ -85,22 +97,86 @@ export const useAppStore = create<AppStore>()(
                     processingQueue: [],
                     activeQueue: []
                 })),
+
             updateReview: (review) =>
                 set((state) => ({
                     reviews: { ...state.reviews, [review.wordId]: review },
                 })),
+
             setSettings: (newSettings) =>
                 set((state) => ({
                     settings: { ...state.settings, ...newSettings },
                 })),
+
             importData: (data) =>
                 set((state) => ({
                     words: { ...state.words, ...data.words },
                     reviews: { ...state.reviews, ...data.reviews },
                     settings: { ...state.settings, ...data.settings },
                     processingQueue: data.processingQueue || [],
-                    activeQueue: [], // Reset active queue on import (or we could try to preserve it, but safe to reset)
+                    activeQueue: [], // Reset active queue on import
                 })),
+
+            toggleWordStatus: (wordId) =>
+                set((state) => {
+                    const word = state.words[wordId];
+                    if (!word) return {};
+                    return {
+                        words: {
+                            ...state.words,
+                            [wordId]: { ...word, enabled: !word.enabled }
+                        }
+                    };
+                }),
+
+            addQuestion: (wordId, question) =>
+                set((state) => {
+                    const word = state.words[wordId];
+                    if (!word) return {};
+                    return {
+                        words: {
+                            ...state.words,
+                            [wordId]: {
+                                ...word,
+                                questions: [...word.questions, question]
+                            }
+                        }
+                    };
+                }),
+
+            updateQuestion: (wordId, questionId, updates) =>
+                set((state) => {
+                    const word = state.words[wordId];
+                    if (!word) return {};
+                    return {
+                        words: {
+                            ...state.words,
+                            [wordId]: {
+                                ...word,
+                                questions: word.questions.map(q =>
+                                    q.id === questionId ? { ...q, ...updates } : q
+                                )
+                            }
+                        }
+                    };
+                }),
+
+            deleteQuestion: (wordId, questionId) =>
+                set((state) => {
+                    const word = state.words[wordId];
+                    if (!word) return {};
+                    // Prevent deleting the last question? Maybe allow but warn in UI.
+                    return {
+                        words: {
+                            ...state.words,
+                            [wordId]: {
+                                ...word,
+                                questions: word.questions.filter(q => q.id !== questionId)
+                            }
+                        }
+                    };
+                }),
+
             getDueReviews: () => {
                 const now = Date.now();
                 const { reviews } = get();
@@ -111,6 +187,32 @@ export const useAppStore = create<AppStore>()(
         }),
         {
             name: 'english-learning-storage',
+            version: 1, // Bump version for migration
+            migrate: (persistedState: any, version) => {
+                if (version === 0) {
+                    // Migration from version 0 to 1
+                    const newWords = { ...persistedState.words };
+                    Object.keys(newWords).forEach((key) => {
+                        const word = newWords[key];
+                        // Check if it's the old format (no questions array)
+                        if (!word.questions) {
+                            word.questions = [{
+                                id: uuidv4(),
+                                sentence: word.sentence || '',
+                                translation: word.translation || '',
+                                cloze: word.cloze || '',
+                            }];
+                            word.enabled = true;
+                            // Clean up old fields
+                            delete word.sentence;
+                            delete word.translation;
+                            delete word.cloze;
+                        }
+                    });
+                    return { ...persistedState, words: newWords };
+                }
+                return persistedState;
+            },
         }
     )
 );

@@ -39,6 +39,8 @@ function App() {
         addWord({
           id: uuidv4(),
           ...data,
+          questions: data.questions.map(q => ({ ...q, id: uuidv4() })),
+          enabled: true, // Default enabled
           addedAt: Date.now(),
         });
       } catch (error) {

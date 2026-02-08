@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import type { LLMService, EvaluationResult } from "./LLMService";
-import type { Word } from "../../types";
+
 
 export class OpenAIProvider implements LLMService {
     private openai: OpenAI;
@@ -15,7 +15,15 @@ export class OpenAIProvider implements LLMService {
         this.modelName = modelName || 'meta-llama/Meta-Llama-3-8B-Instruct';
     }
 
-    async generateWordData(word: string): Promise<Omit<Word, 'id' | 'addedAt'>> {
+    async generateWordData(word: string): Promise<{
+        original: string;
+        wordTranslation: string;
+        questions: {
+            sentence: string;
+            translation: string;
+            cloze: string;
+        }[];
+    }> {
         const prompt = `
       Generate a sentence using the English word "${word}". 
       The sentence should be suitable for an intermediate English learner. 
@@ -39,10 +47,57 @@ export class OpenAIProvider implements LLMService {
             const content = completion.choices[0].message.content;
             if (!content) throw new Error("No content received from LLM");
 
-            return JSON.parse(content);
+            const data = JSON.parse(content);
+            return {
+                original: data.original,
+                wordTranslation: data.wordTranslation,
+                questions: [{
+                    sentence: data.sentence,
+                    translation: data.translation,
+                    cloze: data.cloze
+                }]
+            };
         } catch (error) {
             console.error("OpenAI/Local Generation Error:", error);
             throw new Error("Failed to generate word data.");
+        }
+    }
+
+    async generateQuestion(word: string): Promise<{
+        sentence: string;
+        translation: string;
+        cloze: string;
+    }> {
+        const prompt = `
+      Generate a NEW sentence using the English word "${word}". 
+      The sentence should be different from common examples and suitable for an intermediate learner. 
+      Return a JSON object ONLY, without markdown formatting:
+      {
+        "sentence": "The full sentence containing the word.",
+        "translation": "Traditional Chinese translation of the sentence.",
+        "cloze": "The sentence with the word '${word}' replaced by '__________'."
+      }
+    `;
+
+        try {
+            const completion = await this.openai.chat.completions.create({
+                messages: [{ role: 'user', content: prompt }],
+                model: this.modelName,
+                response_format: { type: "json_object" },
+            });
+
+            const content = completion.choices[0].message.content;
+            if (!content) throw new Error("No content received from LLM");
+
+            const data = JSON.parse(content);
+            return {
+                sentence: data.sentence,
+                translation: data.translation,
+                cloze: data.cloze
+            };
+        } catch (error) {
+            console.error("OpenAI/Local Generation Error:", error);
+            throw new Error("Failed to generate question.");
         }
     }
 

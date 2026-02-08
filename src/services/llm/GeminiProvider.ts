@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { LLMService, EvaluationResult } from "./LLMService";
-import type { Word } from "../../types";
+
 
 export class GeminiProvider implements LLMService {
     private genAI: GoogleGenerativeAI;
@@ -11,7 +11,15 @@ export class GeminiProvider implements LLMService {
         this.model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     }
 
-    async generateWordData(word: string): Promise<Omit<Word, 'id' | 'addedAt'>> {
+    async generateWordData(word: string): Promise<{
+        original: string;
+        wordTranslation: string;
+        questions: {
+            sentence: string;
+            translation: string;
+            cloze: string;
+        }[];
+    }> {
         const prompt = `
       Generate a sentence using the English word "${word}". 
       The sentence should be suitable for an intermediate English learner. 
@@ -31,10 +39,54 @@ export class GeminiProvider implements LLMService {
             const text = response.text();
             // Clean up markdown code blocks if present
             const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-            return JSON.parse(cleanText);
+            const data = JSON.parse(cleanText);
+
+            return {
+                original: data.original,
+                wordTranslation: data.wordTranslation,
+                questions: [{
+                    sentence: data.sentence,
+                    translation: data.translation,
+                    cloze: data.cloze
+                }]
+            };
         } catch (error) {
             console.error("Gemini Generation Error:", error);
             throw new Error("Failed to generate word data.");
+        }
+    }
+
+    async generateQuestion(word: string): Promise<{
+        sentence: string;
+        translation: string;
+        cloze: string;
+    }> {
+        const prompt = `
+      Generate a NEW sentence using the English word "${word}". 
+      The sentence should be different from common examples and suitable for an intermediate learner. 
+      Return a JSON object ONLY, without markdown formatting:
+      {
+        "sentence": "The full sentence containing the word.",
+        "translation": "Traditional Chinese translation of the sentence.",
+        "cloze": "The sentence with the word '${word}' replaced by '__________'."
+      }
+    `;
+
+        try {
+            const result = await this.model.generateContent(prompt);
+            const response = await result.response;
+            const text = response.text();
+            const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            const data = JSON.parse(cleanText);
+
+            return {
+                sentence: data.sentence,
+                translation: data.translation,
+                cloze: data.cloze
+            };
+        } catch (error) {
+            console.error("Gemini Generation Error:", error);
+            throw new Error("Failed to generate question.");
         }
     }
 

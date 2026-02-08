@@ -1,10 +1,16 @@
+export interface Question {
+    id: string;
+    sentence: string;
+    translation: string;
+    cloze: string;
+}
+
 export interface Word {
     id: string;
     original: string;
-    sentence: string;
-    translation: string; // Sentence translation
+    questions: Question[];
     wordTranslation: string; // Word meaning
-    cloze: string; // Sentence with the word replaced by underscores
+    enabled: boolean;
     addedAt: number;
 }
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import type { Word, ReviewItem } from '../types';
+import type { Word, ReviewItem, Question } from '../types';
 import { useAppStore } from '../store/useAppStore';
 import { GeminiProvider } from '../services/llm/GeminiProvider';
 import { OpenAIProvider } from '../services/llm/OpenAIProvider';
@@ -10,11 +10,12 @@ import type { EvaluationResult, LLMService } from '../services/llm/LLMService';
 
 interface QuizCardProps {
     word: Word;
+    question: Question;
     review: ReviewItem;
     onComplete: () => void;
 }
 
-export const QuizCard: React.FC<QuizCardProps> = ({ word, review, onComplete }) => {
+export const QuizCard: React.FC<QuizCardProps> = ({ word, question, review, onComplete }) => {
     const { settings, updateReview } = useAppStore();
 
     const [input, setInput] = useState('');
@@ -23,14 +24,14 @@ export const QuizCard: React.FC<QuizCardProps> = ({ word, review, onComplete }) 
     const [isEvaluating, setIsEvaluating] = useState(false);
     const [feedback, setFeedback] = useState<EvaluationResult | null>(null);
 
-    // Reset state when word changes
+    // Reset state when word/question changes
     useEffect(() => {
         setInput('');
         setHintsUsed(0);
         setShowAnswer(false);
         setIsEvaluating(false);
         setFeedback(null);
-    }, [word.id]);
+    }, [word.id, question.id]);
 
     const handleHint = () => {
         if (hintsUsed < 3) {
@@ -65,7 +66,7 @@ export const QuizCard: React.FC<QuizCardProps> = ({ word, review, onComplete }) 
                 llm = new GeminiProvider(settings.apiKey);
             }
 
-            const result = await llm.evaluateAnswer(word.original, input, word.sentence);
+            const result = await llm.evaluateAnswer(word.original, input, question.sentence);
             setFeedback(result);
 
             if (result.isCorrect) {
@@ -97,7 +98,7 @@ export const QuizCard: React.FC<QuizCardProps> = ({ word, review, onComplete }) 
                         <div className="mb-8">
                             <h2 className="text-xl text-slate-400 mb-2">Fill in the blank</h2>
                             <p className="text-2xl md:text-3xl font-medium leading-relaxed text-indigo-100">
-                                {word.cloze.split('__________').map((part, i, arr) => (
+                                {question.cloze.split('__________').map((part, i, arr) => (
                                     <React.Fragment key={i}>
                                         {part}
                                         {i < arr.length - 1 && (
@@ -108,8 +109,8 @@ export const QuizCard: React.FC<QuizCardProps> = ({ word, review, onComplete }) 
                                     </React.Fragment>
                                 ))}
                             </p>
-                            {word.translation && (
-                                <p className="mt-4 text-slate-500 text-lg">{word.translation}</p>
+                            {question.translation && (
+                                <p className="mt-4 text-slate-500 text-lg">{question.translation}</p>
                             )}
                         </div>
 
@@ -183,8 +184,8 @@ export const QuizCard: React.FC<QuizCardProps> = ({ word, review, onComplete }) 
                         <p className="text-xl text-slate-400 mb-6">{word.wordTranslation}</p>
 
                         <div className="bg-slate-900/50 p-6 rounded-xl mb-8 text-left">
-                            <p className="text-indigo-200 text-lg mb-2">{word.sentence}</p>
-                            <p className="text-slate-500">{word.translation}</p>
+                            <p className="text-indigo-200 text-lg mb-2">{question.sentence}</p>
+                            <p className="text-slate-500">{question.translation}</p>
                         </div>
 
                         <button
