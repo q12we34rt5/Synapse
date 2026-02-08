@@ -13,6 +13,7 @@ export const SettingsModal: React.FC = () => {
     const [provider, setProvider] = useState<'gemini' | 'openai'>(settings.provider);
     const [baseUrl, setBaseUrl] = useState(settings.baseUrl || 'http://localhost:8000/v1');
     const [modelName, setModelName] = useState(settings.modelName || 'meta-llama/Meta-Llama-3-8B-Instruct');
+    const [concurrencyLimit, setConcurrencyLimit] = useState(settings.concurrencyLimit || 1);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -23,6 +24,7 @@ export const SettingsModal: React.FC = () => {
             setProvider(settings.provider);
             setBaseUrl(settings.baseUrl || 'http://localhost:8000/v1');
             setModelName(settings.modelName || 'meta-llama/Meta-Llama-3-8B-Instruct');
+            setConcurrencyLimit(settings.concurrencyLimit || 1);
         }
     }, [isOpen, settings]);
 
@@ -31,7 +33,8 @@ export const SettingsModal: React.FC = () => {
             apiKey,
             provider,
             baseUrl,
-            modelName
+            modelName,
+            concurrencyLimit,
         });
         setIsOpen(false);
     };
@@ -171,6 +174,26 @@ export const SettingsModal: React.FC = () => {
                                                 </div>
                                             </>
                                         )}
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-300 mb-1">
+                                                Concurrency Limit (Parallel Requests)
+                                            </label>
+                                            <div className="flex items-center gap-4">
+                                                <input
+                                                    type="range"
+                                                    min="1"
+                                                    max="5"
+                                                    value={concurrencyLimit}
+                                                    onChange={(e) => setConcurrencyLimit(parseInt(e.target.value))}
+                                                    className="flex-1 accent-indigo-500"
+                                                />
+                                                <span className="text-white font-mono bg-slate-700 px-2 py-1 rounded">
+                                                    {concurrencyLimit}
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-slate-500 mt-1">Higher values process words faster but may hit API rate limits.</p>
+                                        </div>
                                     </div>
 
                                     <hr className="border-slate-700" />
@@ -214,9 +237,9 @@ export const SettingsModal: React.FC = () => {
                                     </div>
                                 </div>
                             </motion.div>
-                        </div>
+                        </div >
                     )}
-                </AnimatePresence>,
+                </AnimatePresence >,
                 document.body
             )}
         </>

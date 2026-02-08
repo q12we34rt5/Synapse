@@ -4,7 +4,7 @@ import { Loader2, Trash2, Plus, AlertCircle, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const Dashboard: React.FC = () => {
-    const { words, reviews, deleteWord, settings, addToQueue, processingQueue } = useAppStore();
+    const { words, reviews, deleteWord, settings, addToQueue, processingQueue, activeQueue, clearAllWords } = useAppStore();
     const [batchInput, setBatchInput] = useState('');
 
     const handleBatchSubmit = () => {
@@ -54,26 +54,53 @@ export const Dashboard: React.FC = () => {
                     </div>
 
                     {/* Processing Queue Display */}
+                    {/* Processing Queue Display */}
                     <AnimatePresence>
-                        {processingQueue.length > 0 && (
+                        {(processingQueue.length > 0 || activeQueue.length > 0) && (
                             <motion.div
                                 initial={{ opacity: 0, height: 0 }}
                                 animate={{ opacity: 1, height: 'auto' }}
                                 exit={{ opacity: 0, height: 0 }}
-                                className="bg-slate-900/50 rounded-xl p-4 border border-indigo-500/30"
+                                className="bg-slate-900/50 rounded-xl p-4 border border-indigo-500/30 space-y-3"
                             >
-                                <div className="flex items-center gap-2 text-indigo-400 mb-2">
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                    <span className="text-sm font-medium">Processing Queue ({processingQueue.length})</span>
-                                </div>
-                                <div className="flex flex-wrap gap-2">
-                                    {processingQueue.map((word, index) => (
-                                        <div key={`${word}-${index}`} className="px-3 py-1 bg-indigo-500/20 text-indigo-200 rounded-full text-xs flex items-center gap-2 border border-indigo-500/20">
-                                            {index === 0 && <Clock className="w-3 h-3 animate-pulse" />}
-                                            {word}
+                                {/* Active Processing */}
+                                {activeQueue.length > 0 && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2 text-indigo-400">
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            <span className="text-sm font-medium">Processing ({activeQueue.length})</span>
                                         </div>
-                                    ))}
-                                </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {activeQueue.map((word, index) => (
+                                                <div key={`active-${word}-${index}`} className="px-3 py-1 bg-indigo-500/20 text-indigo-200 rounded-full text-xs flex items-center gap-2 border border-indigo-500/20 animate-pulse">
+                                                    {word}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Pending Queue */}
+                                {processingQueue.length > 0 && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2 text-slate-500">
+                                            <Clock className="w-4 h-4" />
+                                            <span className="text-sm font-medium">Pending ({processingQueue.length})</span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-2">
+                                            {processingQueue.slice(0, 10).map((word, index) => (
+                                                <div key={`pending-${word}-${index}`} className="px-3 py-1 bg-slate-800 text-slate-400 rounded-full text-xs border border-slate-700">
+                                                    {word}
+                                                </div>
+                                            ))}
+                                            {processingQueue.length > 10 && (
+                                                <div className="px-3 py-1 bg-slate-800 text-slate-400 rounded-full text-xs border border-slate-700">
+                                                    +{processingQueue.length - 10} more
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </motion.div>
                         )}
                     </AnimatePresence>
@@ -82,7 +109,21 @@ export const Dashboard: React.FC = () => {
 
             {/* Word List */}
             <div className="bg-slate-800/50 backdrop-blur-xl border border-slate-700 rounded-2xl p-6">
-                <h2 className="text-xl font-bold text-white mb-4">Vocabulary List ({sortedWords.length})</h2>
+                <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-bold text-white">Vocabulary List ({sortedWords.length})</h2>
+                    {sortedWords.length > 0 && (
+                        <button
+                            onClick={() => {
+                                if (window.confirm('Are you sure you want to delete ALL words? This action cannot be undone.')) {
+                                    clearAllWords();
+                                }
+                            }}
+                            className="text-xs px-3 py-1 bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 rounded-lg transition-colors"
+                        >
+                            Clear All Words
+                        </button>
+                    )}
+                </div>
 
                 {sortedWords.length === 0 ? (
                     <div className="text-center py-12 text-slate-500">

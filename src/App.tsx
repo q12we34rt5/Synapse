@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { SettingsModal } from './components/SettingsModal';
 import { Dashboard } from './components/Dashboard';
@@ -12,17 +12,21 @@ import type { LLMService } from './services/llm/LLMService';
 
 function App() {
   const [view, setView] = useState<'dashboard' | 'quiz'>('dashboard');
-  const { processingQueue, settings, addWord, removeFromQueue } = useAppStore();
-  const isProcessingRef = useRef(false);
+  const {
+    processingQueue,
+    activeQueue,
+    settings,
+    addWord,
+    moveToActive,
+    completeProcessing
+  } = useAppStore();
 
   // Queue Processing Effect
   useEffect(() => {
-    const processQueue = async () => {
-      if (processingQueue.length === 0 || isProcessingRef.current) return;
+    // Determine how many slots are effectively free
+    const activeLimit = settings.concurrencyLimit || 1;
 
-      isProcessingRef.current = true;
-      const currentWord = processingQueue[0];
-
+    const processWord = async (word: string) => {
       try {
         let llm: LLMService;
         if (settings.provider === 'openai') {
@@ -31,28 +35,46 @@ function App() {
           llm = new GeminiProvider(settings.apiKey);
         }
 
-        const data = await llm.generateWordData(currentWord);
+        const data = await llm.generateWordData(word);
         addWord({
           id: uuidv4(),
           ...data,
           addedAt: Date.now(),
         });
-
-        // Success: Remove from queue
-        removeFromQueue();
       } catch (error) {
-        console.error(`Failed to process word: ${currentWord}`, error);
-        // Error: Remove from queue to prevent blocking (or maybe move to a 'failed' list in future)
-        removeFromQueue();
+        console.error(`Failed to process word: ${word}`, error);
       } finally {
-        isProcessingRef.current = false;
-        // Trigger next iteration immediately if there are more items
-        // Since processingQueue dependency will update after removeFromQueue, this effect will run again.
+        // Remove from active queue when done
+        completeProcessing(word);
+
+        // We rely on the effect re-running due to activeQueue changing to pick up new work
       }
     };
 
-    processQueue();
-  }, [processingQueue, settings, addWord, removeFromQueue]);
+    // This effect runs whenever processingQueue or activeQueue (or settings) change.
+    // We check if we can start more work.
+
+    // We need to loop here because moveToActive is synchronous state update, 
+    // but we might need to start multiple items if many slots opened up or we just increased the limit.
+    const startNewTasks = () => {
+      let currentActiveCount = activeQueue.length;
+
+      while (currentActiveCount < activeLimit && processingQueue.length > 0) {
+        // Move item from waiting to active
+        const wordToProcess = moveToActive();
+
+        if (wordToProcess) {
+          currentActiveCount++; // Locally track to avoid over-scheduling in this synchronous loop
+          processWord(wordToProcess);
+        } else {
+          break;
+        }
+      }
+    };
+
+    startNewTasks();
+
+  }, [processingQueue, activeQueue, settings, addWord, moveToActive, completeProcessing]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex flex-col items-center p-4 md:p-8 relative overflow-hidden">

@@ -25,6 +25,7 @@ export interface Settings {
     provider: 'gemini' | 'openai';
     baseUrl?: string; // For local/custom providers
     modelName?: string; // For local/custom providers
+    concurrencyLimit?: number; // Max parallel requests
     theme: 'light' | 'dark' | 'system';
 }
 
@@ -32,5 +33,6 @@ export interface AppState {
     words: Record<string, Word>;
     reviews: Record<string, ReviewItem>;
     settings: Settings;
-    processingQueue: string[];
+    processingQueue: string[]; // Waiting to be processed
+    activeQueue: string[]; // Currently being processed
 }
