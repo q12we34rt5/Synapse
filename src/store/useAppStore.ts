@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
-import type { AppState, Word, ReviewItem, Settings, Question } from '../types';
+import type { AppState, Word, ReviewItem, Settings, Question, Category } from '../types';
 import { DEFAULT_PROMPTS } from '../constants/prompts';
 
 interface AppStore extends AppState {
@@ -24,6 +24,18 @@ interface AppStore extends AppState {
 
     resetWordStats: (wordId: string) => void;
 
+    // Category Actions
+    addCategory: (name: string) => void;
+    deleteCategory: (id: string) => void;
+    renameCategory: (id: string, name: string) => void;
+    moveCategory: (id: string, direction: 'up' | 'down') => void;
+    addWordToCategory: (wordId: string, categoryId: string) => void;
+    removeWordFromCategory: (wordId: string, categoryId: string) => void;
+
+    // Multi-select actions
+    toggleCategorySelection: (id: string, isSingleSelect?: boolean) => void;
+    setSelectedCategoryIds: (ids: string[]) => void;
+
     getDueReviews: () => ReviewItem[];
 }
 
@@ -31,6 +43,7 @@ export const useAppStore = create<AppStore>()(
     persist(
         (set, get) => ({
             words: {},
+            categories: {},
             reviews: {},
             settings: {
                 apiKey: '',
@@ -44,27 +57,31 @@ export const useAppStore = create<AppStore>()(
             },
             processingQueue: [], // Initialize empty queue
             activeQueue: [], // Initialize empty active queue
+            selectedCategoryIds: ['all'],
+            categoryOrder: [],
 
             addToQueue: (newWords) =>
                 set((state) => ({
                     processingQueue: [...state.processingQueue, ...newWords]
                 })),
+
             removeFromQueue: () =>
-                set((state) => ({
-                    processingQueue: state.processingQueue.slice(1)
-                })),
-            moveToActive: () => {
-                let movedItem: string | null = null;
                 set((state) => {
-                    if (state.processingQueue.length === 0) return {};
-                    movedItem = state.processingQueue[0];
-                    return {
-                        processingQueue: state.processingQueue.slice(1),
-                        activeQueue: [...state.activeQueue, movedItem]
-                    };
+                    const [_, ...rest] = state.processingQueue;
+                    return { processingQueue: rest };
+                }),
+
+            moveToActive: () => {
+                const state = get();
+                if (state.processingQueue.length === 0) return null;
+                const [first, ...rest] = state.processingQueue;
+                set({
+                    processingQueue: rest,
+                    activeQueue: [...state.activeQueue, first]
                 });
-                return movedItem;
+                return first;
             },
+
             completeProcessing: (word) =>
                 set((state) => ({
                     activeQueue: state.activeQueue.filter(w => w !== word)
@@ -77,22 +94,24 @@ export const useAppStore = create<AppStore>()(
                         ...state.reviews,
                         [word.id]: {
                             wordId: word.id,
-                            nextReview: Date.now(), // Due immediately
-                            interval: 0,
                             reviewCount: 0,
+                            correctCount: 0,
                             wrongCount: 0,
                             history: [],
-                        },
-                    },
+                            nextReview: Date.now(),
+                            interval: 0
+                        }
+                    }
                 })),
 
             deleteWord: (id) =>
                 set((state) => {
-                    const newWords = { ...state.words };
-                    const newReviews = { ...state.reviews };
-                    delete newWords[id];
-                    delete newReviews[id];
-                    return { words: newWords, reviews: newReviews };
+                    const { [id]: deleted, ...remainingWords } = state.words;
+                    const { [id]: deletedReview, ...remainingReviews } = state.reviews;
+                    return {
+                        words: remainingWords,
+                        reviews: remainingReviews
+                    };
                 }),
 
             clearAllWords: () =>
@@ -100,27 +119,38 @@ export const useAppStore = create<AppStore>()(
                     words: {},
                     reviews: {},
                     processingQueue: [],
-                    activeQueue: []
+                    activeQueue: [],
                 })),
 
             updateReview: (review) =>
                 set((state) => ({
-                    reviews: { ...state.reviews, [review.wordId]: review },
+                    reviews: { ...state.reviews, [review.wordId]: review }
                 })),
 
             setSettings: (newSettings) =>
                 set((state) => ({
-                    settings: { ...state.settings, ...newSettings },
+                    settings: { ...state.settings, ...newSettings }
                 })),
 
-            importData: (data) =>
-                set((state) => ({
-                    words: { ...state.words, ...data.words },
-                    reviews: { ...state.reviews, ...data.reviews },
-                    settings: { ...state.settings, ...data.settings },
-                    processingQueue: data.processingQueue || [],
-                    activeQueue: [], // Reset active queue on import
-                })),
+            importData: (data) => set((state) => {
+                const newWords = { ...state.words, ...(data.words || {}) };
+                const newReviews = { ...state.reviews, ...(data.reviews || {}) };
+                const newCategories = { ...state.categories, ...(data.categories || {}) };
+
+                const existingOrder = state.categoryOrder || [];
+                const importedOrder = data.categoryOrder || Object.keys(data.categories || {});
+                // Filter out duplicates
+                const uniqueImported = importedOrder.filter(id => !existingOrder.includes(id));
+
+                return {
+                    words: newWords,
+                    reviews: newReviews,
+                    categories: newCategories,
+                    categoryOrder: [...existingOrder, ...uniqueImported],
+                    selectedCategoryIds: data.selectedCategoryIds || state.selectedCategoryIds,
+                    settings: { ...state.settings, ...(data.settings || {}) }
+                };
+            }),
 
             toggleWordStatus: (wordId) =>
                 set((state) => {
@@ -170,7 +200,6 @@ export const useAppStore = create<AppStore>()(
                 set((state) => {
                     const word = state.words[wordId];
                     if (!word) return {};
-                    // Prevent deleting the last question? Maybe allow but warn in UI.
                     return {
                         words: {
                             ...state.words,
@@ -193,49 +222,223 @@ export const useAppStore = create<AppStore>()(
                                 ...review,
                                 reviewCount: 0,
                                 wrongCount: 0,
-                                interval: 0,
                                 nextReview: Date.now(),
+                                interval: 0,
                                 history: []
                             }
                         }
                     };
                 }),
 
+            addCategory: (name) =>
+                set((state) => {
+                    const id = uuidv4();
+                    const newCategory: Category = {
+                        id,
+                        name,
+                        createdAt: Date.now(),
+                    };
+                    return {
+                        categories: { ...state.categories, [id]: newCategory },
+                        categoryOrder: [...(state.categoryOrder || []), id]
+                    };
+                }),
+
+            deleteCategory: (id) =>
+                set((state) => {
+                    // 1. Remove category from store
+                    const { [id]: deleted, ...remainingCategories } = state.categories;
+
+                    // 2. Remove categoryId from all words
+                    const newWords = { ...state.words };
+                    Object.keys(newWords).forEach(wordId => {
+                        const word = newWords[wordId];
+                        if (word.categoryIds?.includes(id)) {
+                            newWords[wordId] = {
+                                ...word,
+                                categoryIds: word.categoryIds.filter(cid => cid !== id)
+                            };
+                        }
+                    });
+
+                    // 3. Remove from order
+                    const newOrder = (state.categoryOrder || []).filter(cid => cid !== id);
+
+                    // 4. Remove from selection if present
+                    const newSelected = state.selectedCategoryIds.filter(cid => cid !== id);
+                    const finalSelected = newSelected.length === 0 ? ['all'] : newSelected;
+
+                    return {
+                        categories: remainingCategories,
+                        words: newWords,
+                        selectedCategoryIds: finalSelected,
+                        categoryOrder: newOrder
+                    };
+                }),
+
+            renameCategory: (id, name) =>
+                set((state) => {
+                    const category = state.categories[id];
+                    if (!category) return {};
+                    return {
+                        categories: {
+                            ...state.categories,
+                            [id]: { ...category, name }
+                        }
+                    };
+                }),
+
+            moveCategory: (id, direction) =>
+                set((state) => {
+                    const order = [...(state.categoryOrder || [])];
+                    const index = order.indexOf(id);
+                    if (index === -1) return {};
+
+                    if (direction === 'up') {
+                        if (index === 0) return {}; // Already at top
+                        [order[index - 1], order[index]] = [order[index], order[index - 1]];
+                    } else {
+                        if (index === order.length - 1) return {}; // Already at bottom
+                        [order[index + 1], order[index]] = [order[index], order[index + 1]];
+                    }
+
+                    return { categoryOrder: order };
+                }),
+
+            addWordToCategory: (wordId, categoryId) =>
+                set((state) => {
+                    const word = state.words[wordId];
+                    if (!word) return {};
+                    const currentCategories = word.categoryIds || [];
+                    if (currentCategories.includes(categoryId)) return {};
+                    return {
+                        words: {
+                            ...state.words,
+                            [wordId]: {
+                                ...word,
+                                categoryIds: [...currentCategories, categoryId]
+                            }
+                        }
+                    };
+                }),
+
+            removeWordFromCategory: (wordId, categoryId) =>
+                set((state) => {
+                    const word = state.words[wordId];
+                    if (!word) return {};
+                    const currentCategories = word.categoryIds || [];
+                    return {
+                        words: {
+                            ...state.words,
+                            [wordId]: {
+                                ...word,
+                                categoryIds: currentCategories.filter(cid => cid !== categoryId)
+                            }
+                        }
+                    };
+                }),
+
+            setSelectedCategoryIds: (ids) => set({ selectedCategoryIds: ids }),
+
+            toggleCategorySelection: (id, isSingleSelect) => set((state) => {
+                const current = state.selectedCategoryIds;
+
+                // Single Select Mode (Clicking the name)
+                if (isSingleSelect) {
+                    // If clicking "all", or clicking the same single category -> set to that
+                    if (id === 'all') return { selectedCategoryIds: ['all'] };
+                    return { selectedCategoryIds: [id] };
+                }
+
+                // Toggle Mode (Checkbox)
+                // If "all" is currently selected, clear it when selecting specific
+                let newSelection = current.includes('all') ? [] : [...current];
+
+                if (id === 'all') {
+                    // Toggling "All" -> If it was on, turn off (but must have at least one? No via UI usually "All" is distinct).
+                    // Actually, if I toggle "All", it should just be "All".
+                    return { selectedCategoryIds: ['all'] };
+                }
+
+                if (newSelection.includes(id)) {
+                    newSelection = newSelection.filter(cid => cid !== id);
+                } else {
+                    newSelection.push(id);
+                }
+
+                // If nothing selected, fallback to All? Or allow empty? 
+                // Usually dashboard with empty filter shows nothing. 
+                // But generally "No Filter" = "All". 
+                // Let's fallback to 'all' if empty.
+                if (newSelection.length === 0) {
+                    return { selectedCategoryIds: ['all'] };
+                }
+
+                return { selectedCategoryIds: newSelection };
+            }),
+
             getDueReviews: () => {
                 const now = Date.now();
                 const { reviews } = get();
-                return Object.values(reviews)
-                    .filter((review) => review.nextReview <= now)
-                    .sort((a, b) => a.nextReview - b.nextReview);
-            },
+                return Object.values(reviews).filter(r => r.nextReview <= now);
+            }
+
         }),
         {
-            name: 'english-learning-storage',
-            version: 1, // Bump version for migration
-            migrate: (persistedState: any, version) => {
-                if (version === 0) {
-                    // Migration from version 0 to 1
-                    const newWords = { ...persistedState.words };
-                    Object.keys(newWords).forEach((key) => {
-                        const word = newWords[key];
-                        // Check if it's the old format (no questions array)
+            name: 'synapse-storage-v2',
+            version: 4, // Bump for categoryOrder migration
+            migrate: (persistedState: any, version: number) => {
+                let state = persistedState as any;
+
+                // Unified migration for all previous versions to v4
+                if (version < 4) {
+                    const words = state.words || {};
+                    const categories = state.categories || {};
+
+                    // 1. Sanitize Words
+                    Object.keys(words).forEach((key) => {
+                        const word = words[key];
+                        // Fix legacy questions
                         if (!word.questions) {
                             word.questions = [{
                                 id: uuidv4(),
                                 sentence: word.sentence || '',
                                 translation: word.translation || '',
-                                cloze: word.cloze || '',
+                                cloze: word.cloze || word.sentence || '',
                             }];
-                            word.enabled = true;
-                            // Clean up old fields
                             delete word.sentence;
                             delete word.translation;
                             delete word.cloze;
                         }
+                        // Ensure categoryIds
+                        if (!word.categoryIds) {
+                            word.categoryIds = [];
+                        }
                     });
-                    return { ...persistedState, words: newWords };
+
+                    // 2. Migrate Selection (String -> Array)
+                    let newSelectedIds = state.selectedCategoryIds;
+                    if (!Array.isArray(newSelectedIds)) {
+                        const old = state.selectedCategoryId;
+                        newSelectedIds = old ? [old] : ['all'];
+                    }
+
+                    // 3. Initialize categoryOrder if missing
+                    let newOrder = state.categoryOrder;
+                    if (!Array.isArray(newOrder)) {
+                        newOrder = Object.keys(categories);
+                    }
+
+                    return {
+                        ...state,
+                        words,
+                        categories,
+                        selectedCategoryIds: newSelectedIds,
+                        categoryOrder: newOrder,
+                        selectedCategoryId: undefined // Clean up
+                    };
                 }
-                return persistedState;
+                return state as AppStore;
             },
         }
     )

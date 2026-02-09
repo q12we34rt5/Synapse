@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { DEFAULT_PROMPTS } from '../constants/prompts';
 
 export const SettingsModal: React.FC = () => {
-    const { settings, setSettings, words, reviews, importData } = useAppStore();
+    const { settings, setSettings, words, reviews, importData, categories, categoryOrder, selectedCategoryIds } = useAppStore();
     const [isOpen, setIsOpen] = useState(false);
 
     // State for form fields
@@ -50,6 +50,9 @@ export const SettingsModal: React.FC = () => {
         const data = {
             words,
             reviews,
+            categories,
+            categoryOrder,
+            selectedCategoryIds,
             settings: {
                 ...settings,
                 apiKey: '', // Don't export API key for security

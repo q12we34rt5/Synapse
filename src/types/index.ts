@@ -12,6 +12,13 @@ export interface Word {
     wordTranslation: string; // Word meaning
     enabled: boolean;
     addedAt: number;
+    categoryIds: string[];
+}
+
+export interface Category {
+    id: string;
+    name: string;
+    createdAt: number;
 }
 
 export interface ReviewItem {
@@ -43,8 +50,11 @@ export interface Settings {
 
 export interface AppState {
     words: Record<string, Word>;
+    categories: Record<string, Category>;
     reviews: Record<string, ReviewItem>;
     settings: Settings;
     processingQueue: string[]; // Waiting to be processed
     activeQueue: string[]; // Currently being processed
+    selectedCategoryIds: string[]; // Current filter for Dashboard & Quiz (Multi-select)
+    categoryOrder: string[]; // Order of category IDs for display
 }

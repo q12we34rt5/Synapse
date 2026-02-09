@@ -18,7 +18,8 @@ function App() {
     settings,
     addWord,
     moveToActive,
-    completeProcessing
+    completeProcessing,
+    selectedCategoryIds
   } = useAppStore();
 
   // Queue Processing Effect
@@ -39,6 +40,7 @@ function App() {
         addWord({
           id: uuidv4(),
           ...data,
+          categoryIds: selectedCategoryIds.filter(id => id !== 'all'),
           questions: data.questions.map(q => ({ ...q, id: uuidv4() })),
           enabled: true, // Default enabled
           addedAt: Date.now(),

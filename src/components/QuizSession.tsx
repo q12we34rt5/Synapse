@@ -6,7 +6,7 @@ import { AlertCircle, ChevronRight } from 'lucide-react';
 import type { Question } from '../types';
 
 export const QuizSession: React.FC = () => {
-    const { words, reviews } = useAppStore();
+    const { words, selectedCategoryIds, categories, reviews } = useAppStore();
     const [currentWordId, setCurrentWordId] = useState<string | null>(null);
     const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
 
@@ -15,7 +15,16 @@ export const QuizSession: React.FC = () => {
     // Softmax-based weighted random selection
     const selectNextWord = () => {
         // Filter enabled words ONLY
-        const allWordIds = Object.keys(words).filter(id => words[id].enabled && words[id].questions?.length > 0);
+        let filteredWords = Object.values(words).filter(w => w.enabled && w.questions?.length > 0);
+
+        // Filter by Category (Multi-select)
+        if (!selectedCategoryIds.includes('all')) {
+            filteredWords = filteredWords.filter(w =>
+                w.categoryIds?.some(cid => selectedCategoryIds.includes(cid))
+            );
+        }
+
+        let allWordIds = filteredWords.map(w => w.id);
 
         if (allWordIds.length === 0) return null;
 
@@ -71,23 +80,43 @@ export const QuizSession: React.FC = () => {
         }
     };
 
-    // Initialize first word
+    // Initialize first word or re-validate on change
     useEffect(() => {
-        // If we don't have a word, OR the current word is disabled/deleted, pick a new one
-        if (!currentWordId || !words[currentWordId] || !words[currentWordId].enabled) {
+        // If we don't have a word, OR the current word is disabled/deleted/not in category, pick a new one
+        const word = currentWordId ? words[currentWordId] : null;
+        let isValid = word && word.enabled;
+
+        if (isValid && !selectedCategoryIds.includes('all')) {
+            isValid = word?.categoryIds?.some(cid => selectedCategoryIds.includes(cid)) || false;
+        }
+
+        if (!isValid) {
             handleNext();
         }
-    }, [words]); // Re-run when words change (e.g. toggle status)
+    }, [words, selectedCategoryIds]); // Re-run when words or category change
 
     const word = currentWordId ? words[currentWordId] : null;
-    const review = currentWordId ? reviews[currentWordId] : null;
 
-    if (!word || !review || !currentQuestion) {
+    // Use existing review or create a default one for display
+    const review = currentWordId ? (reviews[currentWordId] || {
+        wordId: currentWordId,
+        reviewCount: 0,
+        correctCount: 0,
+        wrongCount: 0,
+        history: [],
+        nextReview: Date.now(),
+        interval: 0
+    }) : null;
+
+    // If no active words
+    if (!word || !currentQuestion) {
         return (
-            <div className="text-center py-20 text-slate-500">
-                <AlertCircle className="w-16 h-16 mx-auto mb-4 opacity-20" />
-                <h2 className="text-2xl font-bold text-slate-400 mb-2">No Active Words</h2>
-                <p>Add some words or enable existing ones in the Dashboard.</p>
+            <div className="flex flex-col items-center justify-center h-full text-slate-400">
+                <AlertCircle className="w-12 h-12 mb-4 opacity-50" />
+                <p className="text-lg font-medium">No Active Words</p>
+                <div className="text-sm mt-2 text-center max-w-md">
+                    <p>{selectedCategoryIds.includes('all') ? 'Add some words to start!' : 'No active words in selected categories.'}</p>
+                </div>
             </div>
         );
     }
@@ -95,7 +124,16 @@ export const QuizSession: React.FC = () => {
     return (
         <div className="w-full max-w-2xl mx-auto p-4">
             <div className="mb-6 flex justify-between items-center text-slate-400">
-                <span>Practice Mode</span>
+                <div className="flex items-center gap-2">
+                    <span>Practice Mode</span>
+                    {!selectedCategoryIds.includes('all') && (
+                        <span className="px-2 py-0.5 bg-indigo-500/20 text-indigo-300 text-xs rounded border border-indigo-500/30">
+                            {selectedCategoryIds.length === 1
+                                ? categories[selectedCategoryIds[0]]?.name
+                                : `${selectedCategoryIds.length} Categories`}
+                        </span>
+                    )}
+                </div>
                 <button
                     onClick={handleNext}
                     className="flex items-center gap-1 hover:text-white transition-colors text-sm"
@@ -115,7 +153,7 @@ export const QuizSession: React.FC = () => {
                     <QuizCard
                         word={word}
                         question={currentQuestion}
-                        review={review}
+                        review={review!}
                         onComplete={handleNext}
                     />
                 </motion.div>

@@ -9,7 +9,7 @@ import type { LLMService } from '../services/llm/LLMService';
 export const InputSection: React.FC = () => {
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const { addWord, settings } = useAppStore();
+    const { addWord, settings, selectedCategoryIds } = useAppStore();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -36,6 +36,7 @@ export const InputSection: React.FC = () => {
             addWord({
                 id: uuidv4(),
                 ...data,
+                categoryIds: selectedCategoryIds.filter(id => id !== 'all'),
                 questions: data.questions.map(q => ({ ...q, id: uuidv4() })),
                 enabled: true,
                 addedAt: Date.now(),
