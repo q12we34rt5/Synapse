@@ -62,7 +62,7 @@ export const SettingsModal: React.FC = () => {
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
-        link.download = `lexiflow-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        link.download = `synapse-backup-${new Date().toISOString().slice(0, 10)}.json`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -320,7 +320,7 @@ export const SettingsModal: React.FC = () => {
                                                 onClick={handleExport}
                                                 className="flex flex-col items-center justify-center gap-2 p-4 bg-slate-900 hover:bg-slate-700 border border-slate-700 rounded-xl transition-all group"
                                             >
-                                                <Download className="w-6 h-6 text-indigo-400 group-hover:text-white" />
+                                                <Upload className="w-6 h-6 text-indigo-400 group-hover:text-white" />
                                                 <span className="text-sm font-medium text-slate-300 group-hover:text-white">Export JSON</span>
                                             </button>
 
@@ -328,7 +328,7 @@ export const SettingsModal: React.FC = () => {
                                                 onClick={() => fileInputRef.current?.click()}
                                                 className="flex flex-col items-center justify-center gap-2 p-4 bg-slate-900 hover:bg-slate-700 border border-slate-700 rounded-xl transition-all group"
                                             >
-                                                <Upload className="w-6 h-6 text-emerald-400 group-hover:text-white" />
+                                                <Download className="w-6 h-6 text-emerald-400 group-hover:text-white" />
                                                 <span className="text-sm font-medium text-slate-300 group-hover:text-white">Import JSON</span>
                                             </button>
                                             <input
